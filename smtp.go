@@ -171,7 +171,8 @@ func (c *smtpSender) Send(from string, to []string, msg io.WriterTo) error {
 	}
 
 	r := &smtpRecorder{&bytes.Buffer{}}
-	defer r.Record(c)()
+	done := r.Record(c)
+	defer done()
 
 	if _, err = msg.WriteTo(w); err != nil {
 		w.Close()
