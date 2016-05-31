@@ -92,8 +92,10 @@ func Example_newsletter() {
 		m.SetHeader("Subject", "Newsletter #1")
 		m.SetBody("text/html", fmt.Sprintf("Hello %s!", r.Name))
 
-		if err := gomail.Send(s, m); err != nil {
+		if err := gomail.SendSingle(s, m); gomail.IsErr(err) {
 			log.Printf("Could not send email to %q: %v", r.Address, err)
+		} else {
+			log.Print("address", r.Address, "response", err.(gomail.NoError).Response)
 		}
 		m.Reset()
 	}

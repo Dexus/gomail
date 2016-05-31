@@ -1,11 +1,14 @@
 package gomail
 
 import (
+	"bufio"
+	"bytes"
 	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
 	"net/smtp"
+	"net/textproto"
 	"strings"
 	"time"
 )
@@ -168,12 +171,68 @@ func (c *smtpSender) Send(from string, to []string, msg io.WriterTo) error {
 		return err
 	}
 
+	r := &smtpRecorder{&bytes.Buffer{}}
+	done := r.Record(c)
+	defer done()
+
 	if _, err = msg.WriteTo(w); err != nil {
 		w.Close()
 		return err
 	}
 
-	return w.Close()
+	if err := w.Close(); err != nil {
+		return err
+	}
+
+	return NoError{r.StatusMessage()}
+}
+
+func IsErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	_, ok := err.(NoError)
+	return !ok
+}
+
+type NoError struct {
+	Response string
+}
+
+func (err NoError) Error() string {
+	return err.Response
+}
+
+type smtpRecorder struct {
+	*bytes.Buffer
+}
+
+func (r *smtpRecorder) Close() error {
+	r.Reset()
+	return nil
+}
+
+func (r *smtpRecorder) Record(c *smtpSender) (done func()) {
+	sc, ok := c.smtpClient.(*smtp.Client)
+	if !ok {
+		return func() {}
+	}
+
+	original := sc.Text.Reader.R
+	sc.Text.Reader.R = bufio.NewReader(io.TeeReader(original, r))
+
+	return func() { sc.Text.Reader.R = original }
+}
+
+func (r *smtpRecorder) StatusMessage() string {
+	if r.Len() == 0 {
+		return ""
+	}
+
+	t := textproto.NewConn(r)
+	defer t.Close()
+	_, statusMsg, _ := t.ReadResponse(250)
+	return statusMsg
 }
 
 func (c *smtpSender) Close() error {
