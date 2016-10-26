@@ -33,6 +33,8 @@ type Dialer struct {
 	// LocalName is the hostname sent to the SMTP server with the HELO command.
 	// By default, "localhost" is sent.
 	LocalName string
+	// Connection deadline. By default, no deadline.
+	Deadline time.Duration
 }
 
 // NewDialer returns a new SMTP Dialer. The given parameters are used to connect
@@ -62,6 +64,7 @@ func (d *Dialer) Dial() (SendCloser, error) {
 	if err != nil {
 		return nil, err
 	}
+
 
 	if d.SSL {
 		conn = tlsClient(conn, d.tlsConfig())
@@ -111,7 +114,7 @@ func (d *Dialer) Dial() (SendCloser, error) {
 		}
 	}
 
-	return &smtpSender{c, d}, nil
+	return &smtpSender{c, d, conn}, nil
 }
 
 func (d *Dialer) tlsConfig() *tls.Config {
@@ -140,17 +143,24 @@ func (d *Dialer) DialAndSend(m ...*Message) error {
 type smtpSender struct {
 	smtpClient
 	d *Dialer
+	conn net.Conn
 }
 
-func (c *smtpSender) Send(from string, to []string, msg io.WriterTo) error {
+func (c *smtpSender) Send(from string, to []string, msg io.WriterTo, retry ...bool) error {
+	if c.d.Deadline != 0 {
+		c.conn.SetDeadline(time.Now().Add(c.d.Deadline))
+		defer (func() {
+			c.conn.SetDeadline(time.Time{})
+		})()
+	}
 	if err := c.Mail(from); err != nil {
-		if err == io.EOF {
+		if err == io.EOF && (len(retry) == 0 || retry[0]) {
 			// This is probably due to a timeout, so reconnect and try again.
 			sc, derr := c.d.Dial()
 			if derr == nil {
 				if s, ok := sc.(*smtpSender); ok {
 					*c = *s
-					return c.Send(from, to, msg)
+					return c.Send(from, to, msg, false)
 				}
 			}
 		}
