@@ -65,7 +65,7 @@ func (d *Dialer) Dial() (SendCloser, error) {
 		return nil, err
 	}
 
-	conn.SetDeadline(time.Now().Add(10*time.Second))
+	conn.SetDeadline(time.Now().Add(10 * time.Second))
 	defer conn.SetDeadline(time.Time{})
 	if d.SSL {
 		conn = tlsClient(conn, d.tlsConfig())
@@ -143,7 +143,7 @@ func (d *Dialer) DialAndSend(m ...*Message) error {
 
 type smtpSender struct {
 	smtpClient
-	d *Dialer
+	d    *Dialer
 	conn net.Conn
 }
 
@@ -188,6 +188,7 @@ func (c *smtpSender) Send(from string, to []string, msg io.WriterTo, retry ...bo
 }
 
 func (c *smtpSender) Close() error {
+	c.conn.SetDeadline(time.Now().Add(500 * time.Millisecond))
 	return c.Quit()
 }
 
