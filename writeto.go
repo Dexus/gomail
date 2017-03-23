@@ -10,12 +10,36 @@ import (
 	"strings"
 	"time"
 	"github.com/toorop/go-dkim"
+	"github.com/valyala/bytebufferpool"
 )
 
 // WriteTo implements io.WriterTo. It dumps the whole message into w.
 func (m *Message) WriteTo(w io.Writer) (int64, error) {
+
+	buffer := bytebufferpool.Get()
+	defer bytebufferpool.Put(buffer)
+
+	m.writeTo(buffer)
+
+	for i := 0; i < len(m.dkimKeys); i++ {
+
+
+		if err := dkim.Sign(&buffer.B, *m.dkimKeys[i]); err != nil {
+			return int64(0), err
+		}
+	}
+
+	w.Write(buffer.Bytes())
+
+
+	return int64(buffer.Len()), nil
+}
+
+func (m *Message) writeTo(w io.Writer) (int64, error) {
+
 	mw := &messageWriter{w: w}
 	mw.writeMessage(m)
+
 	return mw.n, mw.err
 }
 
@@ -54,13 +78,6 @@ func (w *messageWriter) writeMessage(m *Message) {
 	w.addFiles(m.attachments, true)
 	if m.hasMixedPart() {
 		w.closeMultipart()
-	}
-
-	for i := 0; i < len(m.dkimKeys); i++ {
-		if err := dkim.Sign(w.w, m.dkimKeys[i]); err != nil {
-			w.err = err.Error()
-			break
-		}
 	}
 
 }
