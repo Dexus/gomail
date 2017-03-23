@@ -2,6 +2,7 @@ package gomail
 
 import (
 	"bytes"
+	"github.com/toorop/go-dkim"
 	"io"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ type Message struct {
 	encoding    Encoding
 	hEncoder    mimeEncoder
 	buf         bytes.Buffer
+	dkimKeys    []*dkim.SigOptions
 }
 
 type header map[string][]string
@@ -57,6 +59,7 @@ func (m *Message) Reset() {
 	m.parts = nil
 	m.attachments = nil
 	m.embedded = nil
+	m.dkimKeys = nil
 }
 
 func (m *Message) applySettings(settings []MessageSetting) {
@@ -165,6 +168,11 @@ func hasSpecials(text string) bool {
 	}
 
 	return false
+}
+
+// SetDateHeader sets a date to the given header field.
+func (m *Message) AddDKIMKey(key *dkim.SigOptions) {
+	m.dkimKeys = append(m.dkimKeys, key)
 }
 
 // SetDateHeader sets a date to the given header field.

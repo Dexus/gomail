@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"github.com/toorop/go-dkim"
 )
 
 // WriteTo implements io.WriterTo. It dumps the whole message into w.
@@ -54,6 +55,14 @@ func (w *messageWriter) writeMessage(m *Message) {
 	if m.hasMixedPart() {
 		w.closeMultipart()
 	}
+
+	for i := 0; i < len(m.dkimKeys); i++ {
+		if err := dkim.Sign(w.w, m.dkimKeys[i]); err != nil {
+			w.err = err.Error()
+			break
+		}
+	}
+
 }
 
 func (m *Message) hasMixedPart() bool {
