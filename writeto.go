@@ -139,7 +139,7 @@ func (w *messageWriter) addFiles(files []*file, isAttachment bool, isEncoded boo
 				disp = "inline"
 			}
 			if isEncoded {
-				disp = "inlile"
+				disp = "inline"
 				f.setHeader("Content-Disposition", disp)
 			} else {
 				f.setHeader("Content-Disposition", disp+`; filename="`+f.Name+`"`)
