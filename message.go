@@ -14,6 +14,7 @@ type Message struct {
 	parts       []*part
 	attachments []*file
 	embedded    []*file
+	encoded     []*file
 	charset     string
 	encoding    Encoding
 	hEncoder    mimeEncoder
@@ -301,6 +302,11 @@ func (m *Message) EmbedReader(name string, r io.Reader, settings ...FileSetting)
 // Embed embeds the images to the email.
 func (m *Message) Embed(filename string, settings ...FileSetting) {
 	m.embedded = m.appendFile(m.embedded, fileFromFilename(filename), settings)
+}
+
+// Encoded embeds the encoded parts to the email.
+func (m *Message) EncodedReader(r io.Reader, settings ...FileSetting) {
+	m.encoded = m.appendFile(m.encoded, fileFromReader("", r), settings)
 }
 
 func fileFromFilename(name string) *file {
