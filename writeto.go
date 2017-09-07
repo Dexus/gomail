@@ -45,19 +45,24 @@ func (w *messageWriter) writeMessage(m *Message) {
 		w.closeMultipart()
 	}
 
-	w.addFiles(m.embedded, false)
+	w.addFiles(m.encoded, true, true)
 	if m.hasRelatedPart() {
 		w.closeMultipart()
 	}
 
-	w.addFiles(m.attachments, true)
+	w.addFiles(m.embedded, false, false)
+	if m.hasRelatedPart() {
+		w.closeMultipart()
+	}
+
+	w.addFiles(m.attachments, true, false)
 	if m.hasMixedPart() {
 		w.closeMultipart()
 	}
 }
 
 func (m *Message) hasMixedPart() bool {
-	return (len(m.parts) > 0 && len(m.attachments) > 0) || len(m.attachments) > 1
+	return (len(m.parts) > 0 && len(m.attachments) > 0) || (len(m.parts) > 0 && len(m.encoded) > 0) || len(m.attachments) > 1 || len(m.encoded) > 1
 }
 
 func (m *Message) hasRelatedPart() bool {
@@ -112,7 +117,7 @@ func (w *messageWriter) writePart(p *part, charset string) {
 	w.writeBody(p.copier, p.encoding)
 }
 
-func (w *messageWriter) addFiles(files []*file, isAttachment bool) {
+func (w *messageWriter) addFiles(files []*file, isAttachment bool, isEncoded bool) {
 	for _, f := range files {
 		if _, ok := f.Header["Content-Type"]; !ok {
 			mediaType := mime.TypeByExtension(filepath.Ext(f.Name))
@@ -133,7 +138,13 @@ func (w *messageWriter) addFiles(files []*file, isAttachment bool) {
 			} else {
 				disp = "inline"
 			}
-			f.setHeader("Content-Disposition", disp+`; filename="`+f.Name+`"`)
+			if isEncoded {
+				disp = "inline"
+				f.setHeader("Content-Disposition", disp)
+			} else {
+				f.setHeader("Content-Disposition", disp+`; filename="`+f.Name+`"`)
+			}
+
 		}
 
 		if !isAttachment {
@@ -142,7 +153,12 @@ func (w *messageWriter) addFiles(files []*file, isAttachment bool) {
 			}
 		}
 		w.writeHeaders(f.Header)
-		w.writeBody(f.CopyFunc, Base64)
+		if isEncoded {
+			w.writeBody(f.CopyFunc, Unencoded)
+		} else {
+			w.writeBody(f.CopyFunc, Base64)
+		}
+
 	}
 }
 
@@ -259,6 +275,7 @@ func (w *messageWriter) writeBody(f func(io.Writer) error, enc Encoding) {
 		subWriter = w.partWriter
 	}
 
+	// w.err = f(subWriter)
 	if enc == Base64 {
 		wc := base64.NewEncoder(base64.StdEncoding, newBase64LineWriter(subWriter))
 		w.err = f(wc)
