@@ -320,3 +320,30 @@ func (m *Message) Attach(filename string, settings ...FileSetting) {
 func (m *Message) Embed(filename string, settings ...FileSetting) {
 	m.embedded = m.appendFile(m.embedded, filename, settings)
 }
+
+// EmbedMem memory file
+func (m *Message) EmbedMem(filename string, data []byte) {
+	m.embedded = m.appendMemoryFile(m.embedded, filename, data)
+}
+
+// AttachMem embeds the images to the email.
+func (m *Message) AttachMem(filename string, data []byte) {
+	m.attachments = m.appendMemoryFile(m.attachments, filename, data)
+}
+
+func (m *Message) appendMemoryFile(list []*file, name string, data []byte) []*file {
+	f := &file{
+		Name:   filepath.Base(name),
+		Header: make(map[string][]string),
+		CopyFunc: func(w io.Writer) error {
+			_, err := w.Write(data)
+			return err
+		},
+	}
+
+	if list == nil {
+		return []*file{f}
+	}
+
+	return append(list, f)
+}
