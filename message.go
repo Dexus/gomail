@@ -283,21 +283,11 @@ func SetCopyFunc(f func(io.Writer) error) FileSetting {
 	}
 }
 
-func (m *Message) appendFile(list []*file, name string, settings []FileSetting) []*file {
+func (m *Message) append(list []*file, name string, copyFunc func(w io.Writer) error, settings []FileSetting) []*file {
 	f := &file{
-		Name:   filepath.Base(name),
-		Header: make(map[string][]string),
-		CopyFunc: func(w io.Writer) error {
-			h, err := os.Open(name)
-			if err != nil {
-				return err
-			}
-			if _, err := io.Copy(w, h); err != nil {
-				h.Close()
-				return err
-			}
-			return h.Close()
-		},
+		Name:     name,
+		Header:   make(map[string][]string),
+		CopyFunc: copyFunc,
 	}
 
 	for _, s := range settings {
@@ -311,12 +301,44 @@ func (m *Message) appendFile(list []*file, name string, settings []FileSetting) 
 	return append(list, f)
 }
 
+func (m *Message) appendFile(list []*file, name string, settings []FileSetting) []*file {
+	return m.append(list, filepath.Base(name), func(w io.Writer) error {
+		h, err := os.Open(name)
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(w, h); err != nil {
+			h.Close()
+			return err
+		}
+		return h.Close()
+	}, settings)
+}
+
+func (m *Message) appendData(list []*file, name string, data []byte, settings []FileSetting) []*file {
+	return m.append(list, name, func(w io.Writer) error {
+		r := bytes.NewReader(data)
+		if _, err := io.Copy(w, r); err != nil {
+			return err
+		}
+		return nil
+	}, settings)
+}
+
 // Attach attaches the files to the email.
 func (m *Message) Attach(filename string, settings ...FileSetting) {
 	m.attachments = m.appendFile(m.attachments, filename, settings)
 }
 
+func (m *Message) AttachData(name string, data []byte, settings ...FileSetting) {
+	m.attachments = m.appendData(m.attachments, name, data, settings)
+}
+
 // Embed embeds the images to the email.
 func (m *Message) Embed(filename string, settings ...FileSetting) {
 	m.embedded = m.appendFile(m.embedded, filename, settings)
+}
+
+func (m *Message) EmbedData(name string, data []byte, settings ...FileSetting) {
+	m.embedded = m.appendData(m.embedded, name, data, settings)
 }
