@@ -1,5 +1,16 @@
 # Gomail
-[![Build Status](https://travis-ci.org/go-gomail/gomail.svg?branch=v2)](https://travis-ci.org/go-gomail/gomail) [![Code Coverage](http://gocover.io/_badge/gopkg.in/gomail.v2)](http://gocover.io/gopkg.in/gomail.v2) [![Documentation](https://godoc.org/gopkg.in/gomail.v2?status.svg)](https://godoc.org/gopkg.in/gomail.v2)
+
+[![CircleCI](https://circleci.com/gh/futurenda/gomail.svg?style=svg)](https://circleci.com/gh/futurenda/gomail)
+[![Documentation](https://godoc.org/github.com/futurenda/gomail?status.svg)](https://godoc.org/github.com/futurenda/gomail)
+
+## About this Fork
+
+This is forked version of [@alexcesaro](https://github.com/alexcesaro)'s awesome project [gomail](https://github.com/go-gomail/gomail).
+
+### Diff
+
+- [Accept io.Reader for Attach and Embed](https://github.com/futurenda/gomail/pull/1)
+- Switch to Circle CI
 
 ## Introduction
 
