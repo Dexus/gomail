@@ -65,7 +65,7 @@ func (d *Dialer) Dial() (SendCloser, error) {
 		return nil, err
 	}
 
-	conn.SetDeadline(time.Now().Add(10 * time.Second))
+	conn.SetDeadline(time.Now().Add(20 * time.Second))
 	defer conn.SetDeadline(time.Time{})
 	if d.SSL {
 		conn = tlsClient(conn, d.tlsConfig())
