@@ -2,6 +2,7 @@ package gomail
 
 import (
 	"bytes"
+	"github.com/toorop/go-dkim"
 	"io"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ type Message struct {
 	encoding    Encoding
 	hEncoder    mimeEncoder
 	buf         bytes.Buffer
+	dkimKeys    []*dkim.SigOptions
 }
 
 type header map[string][]string
@@ -51,12 +53,21 @@ func NewMessage(settings ...MessageSetting) *Message {
 // Reset resets the message so it can be reused. The message keeps its previous
 // settings so it is in the same state that after a call to NewMessage.
 func (m *Message) Reset() {
+	m.HeaderReset()
+	m.ContentReset()
+}
+
+func (m *Message) HeaderReset() {
 	for k := range m.header {
 		delete(m.header, k)
 	}
-	m.parts = nil
-	m.attachments = nil
-	m.embedded = nil
+}
+
+func (m *Message) ContentReset() {
+	m.parts = m.parts[:0]
+	m.attachments = m.attachments[:0]
+	m.embedded = m.embedded[:0]
+	m.dkimKeys = m.dkimKeys[:0]
 }
 
 func (m *Message) applySettings(settings []MessageSetting) {
@@ -168,6 +179,11 @@ func hasSpecials(text string) bool {
 }
 
 // SetDateHeader sets a date to the given header field.
+func (m *Message) AddDKIMKey(key *dkim.SigOptions) {
+	m.dkimKeys = append(m.dkimKeys, key)
+}
+
+// SetDateHeader sets a date to the given header field.
 func (m *Message) SetDateHeader(field string, date time.Time) {
 	m.header[field] = []string{m.FormatDate(date)}
 }
@@ -186,6 +202,11 @@ func (m *Message) GetHeader(field string) []string {
 // by SetBody, AddAlternative or AddAlternativeWriter.
 func (m *Message) SetBody(contentType, body string, settings ...PartSetting) {
 	m.parts = []*part{m.newPart(contentType, newCopier(body), settings)}
+}
+
+// Just alias for AddAlternativeWriter
+func (m *Message) SetBodyWriter(contentType string, f func(io.Writer) error, settings ...PartSetting) {
+	m.AddAlternativeWriter(contentType, f, settings...)
 }
 
 // AddAlternative adds an alternative part to the message.
