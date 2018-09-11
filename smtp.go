@@ -37,6 +37,14 @@ type Dialer struct {
 	Deadline time.Duration
 }
 
+type SMTPAuthError struct {
+	Msg string
+}
+
+func (e *SMTPAuthError) Error() string {
+	return e.Msg
+}
+
 // NewDialer returns a new SMTP Dialer. The given parameters are used to connect
 // to the SMTP server.
 func NewDialer(host string, port int, username, password string) *Dialer {
@@ -111,7 +119,7 @@ func (d *Dialer) Dial() (SendCloser, error) {
 	if d.Auth != nil {
 		if err = c.Auth(d.Auth); err != nil {
 			c.Close()
-			return nil, err
+			return nil, &SMTPAuthError{Msg: err.Error()}
 		}
 	}
 
