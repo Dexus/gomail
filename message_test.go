@@ -128,6 +128,7 @@ func TestRecipients(t *testing.T) {
 		content: "From: from@example.com\r\n" +
 			"To: to@example.com\r\n" +
 			"Cc: cc@example.com\r\n" +
+			"Bcc: bcc1@example.com, bcc2@example.com\r\n" +
 			"Subject: Hello!\r\n" +
 			"Content-Type: text/plain; charset=UTF-8\r\n" +
 			"Content-Transfer-Encoding: quoted-printable\r\n" +
@@ -601,6 +602,8 @@ func testMessage(t *testing.T, m *Message, bCount int, want *message) {
 
 func stubSendMail(t *testing.T, bCount int, want *message) SendFunc {
 	return func(from string, to []string, m io.WriterTo) error {
+		t.Helper()
+
 		if from != want.from {
 			t.Fatalf("Invalid from, got %q, want %q", from, want.from)
 		}
@@ -642,6 +645,8 @@ func stubSendMail(t *testing.T, bCount int, want *message) SendFunc {
 }
 
 func compareBodies(t *testing.T, got, want string) {
+	t.Helper()
+
 	// We cannot do a simple comparison since the ordering of headers' fields
 	// is random.
 	gotLines := strings.Split(got, "\r\n")
