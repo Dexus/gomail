@@ -33,6 +33,16 @@ type Dialer struct {
 	// LocalName is the hostname sent to the SMTP server with the HELO command.
 	// By default, "localhost" is sent.
 	LocalName string
+	// Connection deadline. By default, no deadline.
+	Deadline time.Duration
+}
+
+type SMTPAuthError struct {
+	Msg string
+}
+
+func (e *SMTPAuthError) Error() string {
+	return e.Msg
 }
 
 // NewDialer returns a new SMTP Dialer. The given parameters are used to connect
@@ -63,6 +73,8 @@ func (d *Dialer) Dial() (SendCloser, error) {
 		return nil, err
 	}
 
+	conn.SetDeadline(time.Now().Add(20 * time.Second))
+	defer conn.SetDeadline(time.Time{})
 	if d.SSL {
 		conn = tlsClient(conn, d.tlsConfig())
 	}
@@ -107,11 +119,11 @@ func (d *Dialer) Dial() (SendCloser, error) {
 	if d.Auth != nil {
 		if err = c.Auth(d.Auth); err != nil {
 			c.Close()
-			return nil, err
+			return nil, &SMTPAuthError{Msg: err.Error()}
 		}
 	}
 
-	return &smtpSender{c, d}, nil
+	return &smtpSender{c, d, conn}, nil
 }
 
 func (d *Dialer) tlsConfig() *tls.Config {
@@ -139,18 +151,25 @@ func (d *Dialer) DialAndSend(m ...*Message) error {
 
 type smtpSender struct {
 	smtpClient
-	d *Dialer
+	d    *Dialer
+	conn net.Conn
 }
 
-func (c *smtpSender) Send(from string, to []string, msg io.WriterTo) error {
+func (c *smtpSender) Send(from string, to []string, msg io.WriterTo, retry ...bool) error {
+	if c.d.Deadline != 0 {
+		c.conn.SetDeadline(time.Now().Add(c.d.Deadline))
+		defer (func() {
+			c.conn.SetDeadline(time.Time{})
+		})()
+	}
 	if err := c.Mail(from); err != nil {
-		if err == io.EOF {
+		if err == io.EOF && (len(retry) == 0 || retry[0]) {
 			// This is probably due to a timeout, so reconnect and try again.
 			sc, derr := c.d.Dial()
 			if derr == nil {
 				if s, ok := sc.(*smtpSender); ok {
 					*c = *s
-					return c.Send(from, to, msg)
+					return c.Send(from, to, msg, false)
 				}
 			}
 		}
@@ -177,6 +196,7 @@ func (c *smtpSender) Send(from string, to []string, msg io.WriterTo) error {
 }
 
 func (c *smtpSender) Close() error {
+	c.conn.SetDeadline(time.Now().Add(500 * time.Millisecond))
 	return c.Quit()
 }
 

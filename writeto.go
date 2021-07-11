@@ -94,6 +94,10 @@ func (w *messageWriter) openMultipart(mimeType string) {
 }
 
 func (w *messageWriter) createPart(h map[string][]string) {
+	if w.err != nil {
+		// Don't clobber stuff if we're in a bad state
+		return
+	}
 	w.partWriter, w.err = w.writers[w.depth-1].CreatePart(h)
 }
 
@@ -163,6 +167,10 @@ func (w *messageWriter) writeString(s string) {
 }
 
 func (w *messageWriter) writeHeader(k string, v ...string) {
+	if w.err != nil {
+		// Don't write, we're in a bad state.
+		return
+	}
 	w.writeString(k)
 	if len(v) == 0 {
 		w.writeString(":\r\n")
@@ -251,6 +259,10 @@ func (w *messageWriter) writeHeaders(h map[string][]string) {
 }
 
 func (w *messageWriter) writeBody(f func(io.Writer) error, enc Encoding) {
+	if w.err != nil {
+		// Don't try to write, the writer is in a bad state...
+		return
+	}
 	var subWriter io.Writer
 	if w.depth == 0 {
 		w.writeString("\r\n")
